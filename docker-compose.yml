@@ -15,7 +15,7 @@ services:
       - postgres_data:/var/lib/postgresql/data
 
   go-app:
-    build: .
+    image: ghcr.io/brenonfon/frontlead-lab:latest
     container_name: frontlead_go_app
     restart: always
     ports:
@@ -31,6 +31,26 @@ services:
       - SF_CONSUMER_KEY=${SF_CONSUMER_KEY}
       - SF_CONSUMER_SECRET=${SF_CONSUMER_SECRET}
       - HS_API_KEY=${HS_API_KEY}
+    networks:
+      - app-network
+    labels:
+      - "com.centurylinklabs.watchtower.enable=true"
+
+  watchtower:
+    image: containrrr/watchtower
+    container_name: watchtower
+    restart: always
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+      - /root/.docker/config.json:/config.json
+    environment:
+      - WATCHTOWER_CLEANUP=true
+      - WATCHTOWER_POLL_INTERVAL=300
+      - WATCHTOWER_INCLUDE_RESTARTING=true
+      - WATCHTOWER_LABEL_ENABLE=true
+      - REPO_USER=${GITHUB_USERNAME}
+      - REPO_PASS=${GITHUB_TOKEN}
+    command: --interval 300 --cleanup --label-enable
     networks:
       - app-network
 
