@@ -80,6 +80,7 @@ type SOAPEnvelope struct {
                     FirstName string `xml:"FirstName"`
                     LastName  string `xml:"LastName"`
                     Email     string `xml:"Email"`
+                    Phone     string `xml:"Phone"`
                 } `xml:"sObject"`
             } `xml:"Notification"`
         } `xml:"notifications"`
@@ -94,15 +95,15 @@ func main() {
     
     fmt.Println("Server is running on http://localhost:8081")
     fmt.Println("Routes:")
-    fmt.Println("  GET /leads?email=<email> - Check if lead exists in Salesforce")
+    fmt.Println("  GET /leads?phoneNumber=<phoneNumber> - Check if lead exists in Salesforce")
     fmt.Println("  POST /soap - Salesforce SOAP notifications listener")
     
     log.Fatal(http.ListenAndServe(":8081", mux))
 }
 
 func leadsHandler(w http.ResponseWriter, r *http.Request) {
-    email := r.URL.Query().Get("email")
-    isExistingLeadInSalesforce, err := isExistingLeadInSalesforce(email)
+    phoneNumber := r.URL.Query().Get("phoneNumber")
+    isExistingLeadInSalesforce, err := isExistingLeadInSalesforce(phoneNumber)
 
     if err != nil {
         http.Error(w, "Error checking lead", http.StatusInternalServerError)
@@ -129,6 +130,9 @@ func soapHandler(w http.ResponseWriter, r *http.Request) {
     }
     defer r.Body.Close()
 
+    // Log the raw SOAP XML for debugging
+    log.Printf("📩 Raw SOAP XML:\n%s\n", string(bodyBytes))
+
     var env SOAPEnvelope
     if err := xml.Unmarshal(bodyBytes, &env); err != nil {
         log.Printf("Error parsing SOAP: %v", err)
@@ -137,14 +141,14 @@ func soapHandler(w http.ResponseWriter, r *http.Request) {
     }
 
     sobj := env.Body.Notifications.Notification.SObject
-    fmt.Printf("📨 Received Contact: ID=%s, FirstName=%s, LastName=%s, Email=%s\n",
-        sobj.ID, sobj.FirstName, sobj.LastName, sobj.Email)
+    fmt.Printf("📨 Received Contact: ID=%s, FirstName=%s, LastName=%s, Email=%s, Phone=%s\n",
+        sobj.ID, sobj.FirstName, sobj.LastName, sobj.Email, sobj.Phone)
 
     if sobj.ID != "" {
-        if err := insertContact(sobj.ID, sobj.FirstName, sobj.LastName, sobj.Email); err != nil {
+        if err := insertContact(sobj.ID, sobj.FirstName, sobj.LastName, sobj.Email, sobj.Phone); err != nil {
             log.Printf("❌ DB insert error: %v", err)
         } else {
-            fmt.Printf("✅ Saved contact %s to Postgres\n", sobj.Email)
+            fmt.Printf("✅ Saved contact %s %s with phone %s to Postgres\n", sobj.FirstName, sobj.LastName, sobj.Phone)
         }
     }
 
@@ -158,7 +162,7 @@ func soapHandler(w http.ResponseWriter, r *http.Request) {
 </soap:Envelope>`)
 }
 
-func insertContact(id, firstName, lastName, email string) error {
+func insertContact(id, firstName, lastName, email, phone string) error {
     db, err := sql.Open("postgres", getConnStr())
     if err != nil {
         return fmt.Errorf("DB connection error: %v", err)
@@ -166,25 +170,14 @@ func insertContact(id, firstName, lastName, email string) error {
     defer db.Close()
 
     _, err = db.Exec(`
-        CREATE TABLE IF NOT EXISTS contacts (
-            sf_id TEXT PRIMARY KEY,
-            first_name TEXT,
-            last_name TEXT,
-            email TEXT
-        )
-    `)
-    if err != nil {
-        return fmt.Errorf("Error creating table: %v", err)
-    }
-
-    _, err = db.Exec(`
-        INSERT INTO contacts (sf_id, first_name, last_name, email)
-        VALUES ($1, $2, $3, $4)
+        INSERT INTO contacts (sf_id, first_name, last_name, email, phone)
+        VALUES ($1, $2, $3, $4, $5)
         ON CONFLICT (sf_id) DO UPDATE
         SET first_name = EXCLUDED.first_name,
             last_name = EXCLUDED.last_name,
-            email = EXCLUDED.email
-    `, id, firstName, lastName, email)
+            email = EXCLUDED.email,
+            phone = EXCLUDED.phone
+    `, id, firstName, lastName, email, phone)
     if err != nil {
         return fmt.Errorf("Error inserting record: %v", err)
     }
@@ -192,7 +185,7 @@ func insertContact(id, firstName, lastName, email string) error {
     return nil
 }
 
-func isExistingLeadInSalesforce(email string) (bool, error) {
+func isExistingLeadInSalesforce(phoneNumber string) (bool, error) {
     db, err := sql.Open("postgres", getConnStr())
     if err != nil {
         return false, fmt.Errorf("DB connection error: %v", err)
@@ -200,8 +193,8 @@ func isExistingLeadInSalesforce(email string) (bool, error) {
     defer db.Close()
 
     var count int
-    query := "SELECT COUNT(*) FROM contacts WHERE email = $1"
-    err = db.QueryRow(query, email).Scan(&count)
+    query := "SELECT COUNT(*) FROM contacts WHERE phone = $1"
+    err = db.QueryRow(query, phoneNumber).Scan(&count)
     if err != nil {
         return false, fmt.Errorf("Error querying database: %v", err)
     }
