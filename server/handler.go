@@ -30,34 +30,28 @@ func (h *Handler) CheckContact(c *gin.Context) {
 		return
 	}
 
-	var exists bool
+	var contactInfo *hubspot.ContactInfo
 	var err error
 
 	if email != "" {
-		exists, err = h.hsClient.IsExistingContact(email)
+		contactInfo, err = h.hsClient.IsExistingContact(email)
 		if err != nil {
 			c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 			return
 		}
-		c.JSON(http.StatusOK, gin.H{
-			"email":  email,
-			"exists": exists,
-		})
 	} else {
 		// Handle URL-decoded phone number (space becomes +)
-		if phoneNumber[0] == ' ' {
+		if len(phoneNumber) > 0 && phoneNumber[0] == ' ' {
 			phoneNumber = "+" + phoneNumber[1:]
 		}
 		
-		exists, err = h.hsClient.IsExistingContactByPhone(phoneNumber)
+		contactInfo, err = h.hsClient.IsExistingContactByPhone(phoneNumber)
 		if err != nil {
 			c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 			return
 		}
-		c.JSON(http.StatusOK, gin.H{
-			"phone":  phoneNumber,
-			"exists": exists,
-		})
 	}
+
+	c.JSON(http.StatusOK, contactInfo)
 }
 

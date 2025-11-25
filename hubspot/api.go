@@ -5,7 +5,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
-	"os"
 	"time"
 )
 
@@ -19,6 +18,17 @@ type Client struct {
 type Contact struct {
 	ID         string                 `json:"id,omitempty"`
 	Properties map[string]interface{} `json:"properties"`
+}
+
+// ContactInfo represents simplified contact information
+type ContactInfo struct {
+	Exists         bool   `json:"exists"`
+	Email          string `json:"email,omitempty"`
+	Phone          string `json:"phone,omitempty"`
+	FirstName      string `json:"firstname,omitempty"`
+	LastName       string `json:"lastname,omitempty"`
+	Company        string `json:"company,omitempty"`
+	LifecycleStage string `json:"lifecyclestage,omitempty"`
 }
 
 // ContactSearchResponse represents the response from searching contacts
@@ -50,7 +60,7 @@ func NewClient(apiKey string) *Client {
 }
 
 // IsExistingContact checks if a contact exists by email
-func (c *Client) IsExistingContact(email string) (bool, error) {
+func (c *Client) IsExistingContact(email string) (*ContactInfo, error) {
 	searchPayload := map[string]interface{}{
 		"filterGroups": []map[string]interface{}{
 			{
@@ -63,18 +73,18 @@ func (c *Client) IsExistingContact(email string) (bool, error) {
 				},
 			},
 		},
-		"properties": []string{"email", "phone", "lifecyclestage"},
+		"properties": []string{"email", "phone", "firstname", "lastname", "company", "lifecyclestage"},
 		"limit":      1,
 	}
 
 	payloadBytes, err := json.Marshal(searchPayload)
 	if err != nil {
-		return false, err
+		return nil, err
 	}
 
 	req, err := http.NewRequest("POST", "https://api.hubapi.com/crm/v3/objects/contacts/search", bytes.NewBuffer(payloadBytes))
 	if err != nil {
-		return false, err
+		return nil, err
 	}
 
 	req.Header.Add("Authorization", "Bearer "+c.APIKey)
@@ -83,26 +93,40 @@ func (c *Client) IsExistingContact(email string) (bool, error) {
 	// Make the request
 	resp, err := c.HTTPClient.Do(req)
 	if err != nil {
-		return false, err
+		return nil, err
 	}
 	defer resp.Body.Close()
 
 	if resp.StatusCode != http.StatusOK {
-		return false, fmt.Errorf("HubSpot API returned status code: %d", resp.StatusCode)
+		return nil, fmt.Errorf("HubSpot API returned status code: %d", resp.StatusCode)
 	}
 
 	// Parse HubSpot response
 	var hubspotResponse ContactSearchResponse
 
 	if err := json.NewDecoder(resp.Body).Decode(&hubspotResponse); err != nil {
-		return false, err
+		return nil, err
 	}
 
-	return hubspotResponse.Total > 0, nil
+	if hubspotResponse.Total == 0 {
+		return &ContactInfo{Exists: false}, nil
+	}
+
+	// Extract contact information
+	contact := hubspotResponse.Results[0]
+	return &ContactInfo{
+		Exists:         true,
+		Email:          contact.Properties["email"],
+		Phone:          contact.Properties["phone"],
+		FirstName:      contact.Properties["firstname"],
+		LastName:       contact.Properties["lastname"],
+		Company:        contact.Properties["company"],
+		LifecycleStage: contact.Properties["lifecyclestage"],
+	}, nil
 }
 
 // IsExistingContactByPhone checks if a contact exists by phone number
-func (c *Client) IsExistingContactByPhone(phoneNumber string) (bool, error) {
+func (c *Client) IsExistingContactByPhone(phoneNumber string) (*ContactInfo, error) {
 	searchPayload := map[string]interface{}{
 		"filterGroups": []map[string]interface{}{
 			{
@@ -115,18 +139,18 @@ func (c *Client) IsExistingContactByPhone(phoneNumber string) (bool, error) {
 				},
 			},
 		},
-		"properties": []string{"phone", "lifecyclestage"},
+		"properties": []string{"phone", "firstname", "lastname", "company", "lifecyclestage"},
 		"limit":      1,
 	}
 
 	payloadBytes, err := json.Marshal(searchPayload)
 	if err != nil {
-		return false, err
+		return nil, err
 	}
 
 	req, err := http.NewRequest("POST", "https://api.hubapi.com/crm/v3/objects/contacts/search", bytes.NewBuffer(payloadBytes))
 	if err != nil {
-		return false, err
+		return nil, err
 	}
 
 	req.Header.Add("Authorization", "Bearer "+c.APIKey)
@@ -135,27 +159,33 @@ func (c *Client) IsExistingContactByPhone(phoneNumber string) (bool, error) {
 	// Make the request
 	resp, err := c.HTTPClient.Do(req)
 	if err != nil {
-		return false, err
+		return nil, err
 	}
 	defer resp.Body.Close()
 
 	if resp.StatusCode != http.StatusOK {
-		return false, fmt.Errorf("HubSpot API returned status code: %d", resp.StatusCode)
+		return nil, fmt.Errorf("HubSpot API returned status code: %d", resp.StatusCode)
 	}
 
 	// Parse HubSpot response
 	var hubspotResponse ContactSearchResponse
 
 	if err := json.NewDecoder(resp.Body).Decode(&hubspotResponse); err != nil {
-		return false, err
+		return nil, err
 	}
 
-	return hubspotResponse.Total > 0, nil
-}
+	if hubspotResponse.Total == 0 {
+		return &ContactInfo{Exists: false}, nil
+	}
 
-// Helper function to maintain backward compatibility
-func isExistingLeadInHubspot(email string) (bool, error) {
-	apiKey := os.Getenv("HS_API_KEY")
-	client := NewClient(apiKey)
-	return client.IsExistingContact(email)
+	// Extract contact information
+	contact := hubspotResponse.Results[0]
+	return &ContactInfo{
+		Exists:         true,
+		Phone:          contact.Properties["phone"],
+		FirstName:      contact.Properties["firstname"],
+		LastName:       contact.Properties["lastname"],
+		Company:        contact.Properties["company"],
+		LifecycleStage: contact.Properties["lifecyclestage"],
+	}, nil
 }
