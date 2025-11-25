@@ -3,7 +3,7 @@ package server
 import (
 	"log"
 
-	"frontlead-lab/salesforce"
+	"frontlead-lab/hubspot"
 
 	"github.com/gin-gonic/gin"
 )
@@ -16,9 +16,9 @@ type Server struct {
 }
 
 // New creates a new HTTP server instance
-func New(sfClient *salesforce.Client, port string) *Server {
+func New(hsClient *hubspot.Client, port string) *Server {
 	router := gin.Default()
-	handler := NewHandler(sfClient)
+	handler := NewHandler(hsClient)
 
 	s := &Server{
 		router:  router,
@@ -36,10 +36,8 @@ func (s *Server) setupRoutes() {
 	// Apply middleware to all routes
 	s.router.Use(LoggingMiddleware())
 
-	// Lead routes
-	s.router.POST("/leads", s.handler.CreateLead)
-	s.router.GET("/leads/:id", s.handler.GetLead)
-	s.router.PATCH("/leads/:id", s.handler.UpdateLead)
+	// Contact routes
+	s.router.GET("/contacts/check", s.handler.CheckContact)
 }
 
 // Start starts the HTTP server
@@ -47,9 +45,7 @@ func (s *Server) Start() error {
 	addr := ":" + s.port
 	log.Printf("🚀 Server starting on http://localhost%s", addr)
 	log.Printf("Routes:")
-	log.Printf("  POST   /leads       - Create a new lead")
-	log.Printf("  GET    /leads/:id   - Get a lead by ID")
-	log.Printf("  PATCH  /leads/:id   - Update a lead")
+	log.Printf("  GET    /contacts/check?email=<email>   - Check if contact exists in HubSpot")
 
 	return s.router.Run(addr)
 }

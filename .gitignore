@@ -1,2 +1,9 @@
 .env
 vendor
+
+# Compiled binaries
+frontlead-lab
+*.exe
+*.dll
+*.so
+*.dylib
