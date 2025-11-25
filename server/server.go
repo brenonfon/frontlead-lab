@@ -46,6 +46,7 @@ func (s *Server) Start() error {
 	log.Printf("🚀 Server starting on http://localhost%s", addr)
 	log.Printf("Routes:")
 	log.Printf("  GET    /contacts/check?email=<email>   - Check if contact exists in HubSpot")
+	log.Printf("  GET    /contacts/check?phone=<phone>   - Check if contact exists in HubSpot")
 
 	return s.router.Run(addr)
 }

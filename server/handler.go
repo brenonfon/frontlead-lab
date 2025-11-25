@@ -20,22 +20,44 @@ func NewHandler(hsClient *hubspot.Client) *Handler {
 	}
 }
 
-// CheckContact handles GET /contacts/check - checks if a contact exists in HubSpot by email
+// CheckContact handles GET /contacts/check - checks if a contact exists in HubSpot by email or phone
 func (h *Handler) CheckContact(c *gin.Context) {
 	email := c.Query("email")
-	if email == "" {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "email parameter is required"})
+	phoneNumber := c.Query("phone")
+
+	if email == "" && phoneNumber == "" {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "either email or phone parameter is required"})
 		return
 	}
 
-	exists, err := h.hsClient.IsExistingContact(email)
-	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
-		return
-	}
+	var exists bool
+	var err error
 
-	c.JSON(http.StatusOK, gin.H{
-		"email":  email,
-		"exists": exists,
-	})
+	if email != "" {
+		exists, err = h.hsClient.IsExistingContact(email)
+		if err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+			return
+		}
+		c.JSON(http.StatusOK, gin.H{
+			"email":  email,
+			"exists": exists,
+		})
+	} else {
+		// Handle URL-decoded phone number (space becomes +)
+		if phoneNumber[0] == ' ' {
+			phoneNumber = "+" + phoneNumber[1:]
+		}
+		
+		exists, err = h.hsClient.IsExistingContactByPhone(phoneNumber)
+		if err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+			return
+		}
+		c.JSON(http.StatusOK, gin.H{
+			"phone":  phoneNumber,
+			"exists": exists,
+		})
+	}
 }
+
