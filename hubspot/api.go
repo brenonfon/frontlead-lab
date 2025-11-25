@@ -1,0 +1,91 @@
+package hubspot
+
+import (
+	"encoding/json"
+	"fmt"
+	"net/http"
+	"os"
+	"time"
+)
+
+// Client represents a HubSpot API client
+type Client struct {
+	APIKey     string
+	HTTPClient *http.Client
+}
+
+// Contact represents a HubSpot Contact object
+type Contact struct {
+	ID         string                 `json:"id,omitempty"`
+	Properties map[string]interface{} `json:"properties"`
+}
+
+// ContactSearchResponse represents the response from searching contacts
+type ContactSearchResponse struct {
+	Results []struct {
+		Properties struct {
+			Email string `json:"email"`
+		} `json:"properties"`
+	} `json:"results"`
+	Total int `json:"total"`
+}
+
+// NewClient creates a new HubSpot API client
+func NewClient(apiKey string) *Client {
+	return &Client{
+		APIKey: apiKey,
+		HTTPClient: &http.Client{
+			Timeout: 30 * time.Second,
+		},
+	}
+}
+
+// IsExistingContact checks if a contact exists by email
+func (c *Client) IsExistingContact(email string) (bool, error) {
+	req, err := http.NewRequest("GET", "https://api.hubapi.com/crm/v3/objects/contacts", nil)
+	if err != nil {
+		return false, err
+	}
+
+	req.Header.Add("Authorization", "Bearer "+c.APIKey)
+	req.Header.Add("Content-Type", "application/json")
+
+	q := req.URL.Query()
+	q.Add("properties", "email")
+	q.Add("limit", "1")
+	req.URL.RawQuery = q.Encode()
+
+	// Make the request
+	resp, err := c.HTTPClient.Do(req)
+	if err != nil {
+		return false, err
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		return false, fmt.Errorf("HubSpot API returned status code: %d", resp.StatusCode)
+	}
+
+	// Parse HubSpot response
+	var hubspotResponse ContactSearchResponse
+
+	if err := json.NewDecoder(resp.Body).Decode(&hubspotResponse); err != nil {
+		return false, err
+	}
+
+	// Check if any contact matches the email
+	for _, contact := range hubspotResponse.Results {
+		if contact.Properties.Email == email {
+			return true, nil
+		}
+	}
+
+	return hubspotResponse.Total > 0, nil
+}
+
+// Helper function to maintain backward compatibility
+func isExistingLeadInHubspot(email string) (bool, error) {
+	apiKey := os.Getenv("HS_API_KEY")
+	client := NewClient(apiKey)
+	return client.IsExistingContact(email)
+}
