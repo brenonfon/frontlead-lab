@@ -17,6 +17,9 @@ type Server struct {
 
 // New creates a new HTTP server instance
 func New(hsClient *hubspot.Client, port string) *Server {
+	// Disable Gin debug logs
+	gin.SetMode(gin.ReleaseMode)
+
 	router := gin.Default()
 	handler := NewHandler(hsClient)
 
@@ -37,7 +40,9 @@ func (s *Server) setupRoutes() {
 	s.router.Use(LoggingMiddleware())
 
 	// Contact routes
-	s.router.GET("/contacts/check", s.handler.CheckContact)
+	s.router.GET("/contacts", s.handler.GetContacts)
+	s.router.POST("/contacts", s.handler.CreateContact)
+	s.router.PATCH("/contacts/phone/:phone", s.handler.UpdateContactByPhone)
 }
 
 // Start starts the HTTP server
@@ -45,8 +50,9 @@ func (s *Server) Start() error {
 	addr := ":" + s.port
 	log.Printf("🚀 Server starting on http://localhost%s", addr)
 	log.Printf("Routes:")
-	log.Printf("  GET    /contacts/check?email=<email>   - Check if contact exists in HubSpot")
-	log.Printf("  GET    /contacts/check?phone=<phone>   - Check if contact exists in HubSpot")
+	log.Printf("  GET    /contacts                    - Get all contacts or check specific contact (query: ?email= or ?phone=)")
+	log.Printf("  POST   /contacts                    - Create a new contact in HubSpot")
+	log.Printf("  PATCH  /contacts/phone/:phone       - Update a contact by phone number")
 
 	return s.router.Run(addr)
 }
