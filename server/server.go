@@ -17,6 +17,7 @@ type Server struct {
 
 // New creates a new HTTP server instance
 func New(sfClient *salesforce.Client, port string) *Server {
+	gin.SetMode(gin.TestMode)
 	router := gin.Default()
 	handler := NewHandler(sfClient)
 

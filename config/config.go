@@ -12,12 +12,10 @@ type Config struct {
 		Port string `env:"PORT" envDefault:"8081"`
 	}
 	Salesforce struct {
-		Username       string `env:"SF_USERNAME,required"`
 		URL            string `env:"SF_URL,required"`
-		Password       string `env:"SF_PASSWORD,required"`
 		ConsumerKey    string `env:"SF_CONSUMER_KEY,required"`
 		ConsumerSecret string `env:"SF_CONSUMER_SECRET,required"`
-		SecurityToken  string `env:"SF_SECURITY_TOKEN,required"`
+		RedirectURI    string `env:"SF_REDIRECT_URI,required"`
 	}
 }
 

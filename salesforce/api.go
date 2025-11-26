@@ -7,6 +7,7 @@ import (
 	"io"
 	"log"
 	"net/http"
+	"net/url"
 	"time"
 )
 
@@ -46,7 +47,19 @@ type CreateLeadResponse struct {
 
 // AuthResponse represents the OAuth token response
 type AuthResponse struct {
-	AccessToken string `json:"access_token"`
+	AccessToken  string `json:"access_token"`
+	InstanceURL  string `json:"instance_url"`
+	RefreshToken string `json:"refresh_token,omitempty"`
+	IssuedAt     string `json:"issued_at"`
+	Signature    string `json:"signature"`
+}
+
+// OAuthConfig holds OAuth configuration
+type OAuthConfig struct {
+	BaseURL        string
+	ConsumerKey    string
+	ConsumerSecret string
+	RedirectURI    string
 }
 
 // NewClient creates a new Salesforce API client
@@ -101,6 +114,63 @@ func Authenticate(url, username, password, consumerKey, consumerSecret, security
 	}
 
 	return NewClient(url, authResp.AccessToken), nil
+}
+
+// GetAuthorizationURL generates the OAuth authorization URL for Web Server Flow
+func GetAuthorizationURL(config *OAuthConfig) string {
+	authURL := fmt.Sprintf("%s/services/oauth2/authorize", config.BaseURL)
+	params := url.Values{}
+	params.Add("response_type", "code")
+	params.Add("client_id", config.ConsumerKey)
+	params.Add("redirect_uri", config.RedirectURI)
+	params.Add("scope", "api refresh_token")
+
+	fullURL := fmt.Sprintf("%s?%s", authURL, params.Encode())
+	log.Printf("🔗 Authorization URL: %s", fullURL)
+	log.Printf("🔗 Redirect URI being used: %s", config.RedirectURI)
+	
+	return fullURL
+}
+
+// ExchangeCodeForToken exchanges an authorization code for an access token
+func ExchangeCodeForToken(config *OAuthConfig, code string) (*Client, error) {
+	tokenURL := fmt.Sprintf("%s/services/oauth2/token", config.BaseURL)
+
+	data := url.Values{}
+	data.Set("grant_type", "authorization_code")
+	data.Set("client_id", config.ConsumerKey)
+	data.Set("client_secret", config.ConsumerSecret)
+	data.Set("redirect_uri", config.RedirectURI)
+	data.Set("code", code)
+
+	req, err := http.NewRequest("POST", tokenURL, bytes.NewBufferString(data.Encode()))
+	if err != nil {
+		return nil, fmt.Errorf("failed to create token request: %w", err)
+	}
+
+	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+
+	client := &http.Client{Timeout: 30 * time.Second}
+	resp, err := client.Do(req)
+	if err != nil {
+		return nil, fmt.Errorf("token request failed: %w", err)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		body, _ := io.ReadAll(resp.Body)
+		return nil, fmt.Errorf("token exchange failed with status %d: %s", resp.StatusCode, string(body))
+	}
+
+	var authResp AuthResponse
+	if err := json.NewDecoder(resp.Body).Decode(&authResp); err != nil {
+		return nil, fmt.Errorf("failed to decode auth response: %w", err)
+	}
+
+	log.Printf("✅ Successfully obtained access token")
+	log.Printf("Instance URL: %s", authResp.InstanceURL)
+
+	return NewClient(authResp.InstanceURL, authResp.AccessToken), nil
 }
 
 // CreateLead creates a new lead in Salesforce
