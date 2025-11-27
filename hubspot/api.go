@@ -18,6 +18,17 @@ var (
 	contactProperties = []string{"email", "phone", "firstname", "lastname", "company", "lifecyclestage"}
 )
 
+// APIError represents an error from the HubSpot API
+type APIError struct {
+	StatusCode int
+	Message    string
+}
+
+// Error implements the error interface
+func (e *APIError) Error() string {
+	return e.Message
+}
+
 // Client represents a HubSpot API client
 type Client struct {
 	APIKey     string
@@ -300,7 +311,7 @@ func (c *Client) CreateContact(properties map[string]string, associations []Asso
 func (c *Client) UpdateContactByPhone(phoneNumber string, properties map[string]string) (*UpdateContactResponse, error) {
 	log.Printf("[HubSpot] Updating contact by phone: %s with properties: %v", phoneNumber, properties)
 
-	// Get the full contact ID from the search
+	// First, search for the contact by phone to get the ID
 	searchReq := &SearchRequest{
 		FilterGroups: []FilterGroup{
 			{
@@ -318,28 +329,19 @@ func (c *Client) UpdateContactByPhone(phoneNumber string, properties map[string]
 	}
 
 	searchResponse, err := c.searchContacts(searchReq)
-	if err != nil || searchResponse.Total == 0 {
-		return nil, fmt.Errorf("failed to get contact ID")
+	if err != nil {
+		return nil, fmt.Errorf("failed to search contact by phone: %w", err)
+	}
+
+	if searchResponse.Total == 0 {
+		return nil, fmt.Errorf("no contact found with phone: %s", phoneNumber)
 	}
 
 	contactID := searchResponse.Results[0].ID
 	log.Printf("[HubSpot] Found contact ID: %s for phone: %s", contactID, phoneNumber)
 
-	// Now update the contact
-	updateReq := &UpdateContactRequest{
-		Properties: properties,
-	}
-
-	url := fmt.Sprintf("%s/%s", hubspotContactURL, contactID)
-	var response UpdateContactResponse
-	err = c.doRequest(http.MethodPatch, url, updateReq, &response)
-	if err != nil {
-		log.Printf("[HubSpot] Error updating contact: %v", err)
-		return nil, fmt.Errorf("failed to update contact: %w", err)
-	}
-
-	log.Printf("[HubSpot] Successfully updated contact ID: %s", response.ID)
-	return &response, nil
+	// Use the UpdateContactByID method to update the contact
+	return c.UpdateContactByID(contactID, properties)
 }
 
 // searchContacts performs a contact search with the given search request
@@ -350,6 +352,39 @@ func (c *Client) searchContacts(searchReq *SearchRequest) (*ContactSearchRespons
 		return nil, err
 	}
 	return &response, nil
+}
+
+// UpdateContactByID updates a contact by its HubSpot ID
+func (c *Client) UpdateContactByID(contactID string, properties map[string]string) (*UpdateContactResponse, error) {
+	log.Printf("[HubSpot] UpdateContactByID: contactID=%s", contactID)
+
+	updateReq := UpdateContactRequest{
+		Properties: properties,
+	}
+
+	url := fmt.Sprintf("%s/%s", hubspotContactURL, contactID)
+	var response UpdateContactResponse
+
+	if err := c.doRequest(http.MethodPatch, url, updateReq, &response); err != nil {
+		return nil, err
+	}
+	return &response, nil
+}
+
+// GetContactByID retrieves a contact by its HubSpot ID
+func (c *Client) GetContactByID(contactID string) (*ContactInfo, error) {
+	log.Printf("[HubSpot] Getting contact by ID: %s", contactID)
+
+	url := fmt.Sprintf("%s/%s?properties=%s", hubspotContactURL, contactID, "email,phone,firstname,lastname,company,lifecyclestage")
+
+	var contact ContactResult
+	if err := c.doRequest(http.MethodGet, url, nil, &contact); err != nil {
+		log.Printf("[HubSpot] Error getting contact by ID %s: %v", contactID, err)
+		return nil, fmt.Errorf("failed to get contact by ID: %w", err)
+	}
+
+	log.Printf("[HubSpot] Contact found with ID %s", contactID)
+	return buildContactInfo(contact), nil
 }
 
 // doRequest performs an HTTP request with proper headers and error handling
@@ -385,19 +420,20 @@ func (c *Client) doRequest(method, url string, payload, response any) error {
 	}
 	defer resp.Body.Close()
 
-	if resp.StatusCode != http.StatusOK {
+	// Check if the status code is a success code (2xx)
+	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
 		// Read the error response body for more details
 		var errorBody bytes.Buffer
 		errorBody.ReadFrom(resp.Body)
 
-		log.Printf("[HubSpot] API returned non-OK status: %d", resp.StatusCode)
+		log.Printf("[HubSpot] API returned non-success status: %d", resp.StatusCode)
 		log.Printf("[HubSpot] Response body: %s", errorBody.String())
 
-		if resp.StatusCode == http.StatusUnauthorized {
-			return fmt.Errorf("authentication failed (401): check your HubSpot API key and permissions. Error: %s", errorBody.String())
+		// Return APIError with status code
+		return &APIError{
+			StatusCode: resp.StatusCode,
+			Message:    errorBody.String(),
 		}
-
-		return fmt.Errorf("HubSpot API returned status code: %d, body: %s", resp.StatusCode, errorBody.String())
 	}
 
 	if response != nil {
