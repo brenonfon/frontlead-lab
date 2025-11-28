@@ -10,12 +10,26 @@ import (
 )
 
 const (
-	hubspotURL        = "https://api.hubapi.com/crm/v3/objects/contacts/search"
-	hubspotContactURL = "https://api.hubapi.com/crm/v3/objects/contacts"
+	hubspotBaseURL = "https://api.hubapi.com/crm/v3/objects/contacts"
 )
 
 var (
-	contactProperties = []string{"email", "phone", "firstname", "lastname", "company", "lifecyclestage"}
+	// Default properties to fetch when retrieving contacts
+	contactProperties = []string{
+		"email",
+		"phone",
+		"firstname",
+		"lastname",
+		"company",
+		"lifecyclestage",
+		"business_needs",
+		"integration_timeline",
+		"seats_or_extensions",
+		"last_offer_summary",
+		"interest_topic",
+		"interest_source",
+		"campaign_offer",
+	}
 )
 
 // APIError represents an error from the HubSpot API
@@ -43,14 +57,9 @@ type Contact struct {
 
 // ContactInfo represents simplified contact information
 type ContactInfo struct {
-	Exists         bool   `json:"exists"`
-	ID             string `json:"id,omitempty"`
-	Email          string `json:"email,omitempty"`
-	Phone          string `json:"phone,omitempty"`
-	FirstName      string `json:"firstname,omitempty"`
-	LastName       string `json:"lastname,omitempty"`
-	Company        string `json:"company,omitempty"`
-	LifecycleStage string `json:"lifecyclestage,omitempty"`
+	Exists     bool              `json:"exists"`
+	ID         string            `json:"id,omitempty"`
+	Properties map[string]string `json:"properties,omitempty"`
 }
 
 // Filter represents a single filter criterion
@@ -129,20 +138,13 @@ type CreateContactRequest struct {
 	Associations []Association     `json:"associations,omitempty"`
 }
 
-// ContactEntity represents the created contact entity in the response
-type ContactEntity struct {
+// CreateContactResponse represents the response from creating a contact
+type CreateContactResponse struct {
 	ID         string            `json:"id"`
 	Properties map[string]string `json:"properties"`
 	CreatedAt  string            `json:"createdAt"`
 	UpdatedAt  string            `json:"updatedAt"`
 	Archived   bool              `json:"archived"`
-}
-
-// CreateContactResponse represents the response from creating a contact
-type CreateContactResponse struct {
-	CreatedResourceID string        `json:"createdResourceId"`
-	Entity            ContactEntity `json:"entity"`
-	Location          string        `json:"location"`
 }
 
 // UpdateContactRequest represents a request to update a contact
@@ -243,7 +245,7 @@ func (c *Client) GetContactByPhone(phoneNumber string) (*ContactInfo, error) {
 func (c *Client) GetAllContacts(limit int, after string, properties []string, archived bool) (*GetAllContactsResponse, error) {
 	log.Printf("[HubSpot] Fetching all contacts (limit=%d, archived=%v, properties=%d)", limit, archived, len(properties))
 
-	url := hubspotContactURL + "?"
+	url := hubspotBaseURL + "?"
 
 	// Build query parameters
 	params := make(map[string]string)
@@ -297,13 +299,13 @@ func (c *Client) CreateContact(properties map[string]string, associations []Asso
 	}
 
 	var response CreateContactResponse
-	err := c.doRequest(http.MethodPost, hubspotContactURL, createReq, &response)
+	err := c.doRequest(http.MethodPost, hubspotBaseURL, createReq, &response)
 	if err != nil {
 		log.Printf("[HubSpot] Error creating contact: %v", err)
 		return nil, fmt.Errorf("failed to create contact: %w", err)
 	}
 
-	log.Printf("[HubSpot] Successfully created contact with ID: %s", response.Entity.ID)
+	log.Printf("[HubSpot] Successfully created contact with ID: %s", response.ID)
 	return &response, nil
 }
 
@@ -347,7 +349,8 @@ func (c *Client) UpdateContactByPhone(phoneNumber string, properties map[string]
 // searchContacts performs a contact search with the given search request
 func (c *Client) searchContacts(searchReq *SearchRequest) (*ContactSearchResponse, error) {
 	var response ContactSearchResponse
-	err := c.doRequest(http.MethodPost, hubspotURL, searchReq, &response)
+	searchURL := hubspotBaseURL + "/search"
+	err := c.doRequest(http.MethodPost, searchURL, searchReq, &response)
 	if err != nil {
 		return nil, err
 	}
@@ -362,7 +365,7 @@ func (c *Client) UpdateContactByID(contactID string, properties map[string]strin
 		Properties: properties,
 	}
 
-	url := fmt.Sprintf("%s/%s", hubspotContactURL, contactID)
+	url := fmt.Sprintf("%s/%s", hubspotBaseURL, contactID)
 	var response UpdateContactResponse
 
 	if err := c.doRequest(http.MethodPatch, url, updateReq, &response); err != nil {
@@ -375,7 +378,16 @@ func (c *Client) UpdateContactByID(contactID string, properties map[string]strin
 func (c *Client) GetContactByID(contactID string) (*ContactInfo, error) {
 	log.Printf("[HubSpot] Getting contact by ID: %s", contactID)
 
-	url := fmt.Sprintf("%s/%s?properties=%s", hubspotContactURL, contactID, "email,phone,firstname,lastname,company,lifecyclestage")
+	// Build properties query parameter
+	propertiesParam := ""
+	for i, prop := range contactProperties {
+		if i > 0 {
+			propertiesParam += ","
+		}
+		propertiesParam += prop
+	}
+
+	url := fmt.Sprintf("%s/%s?properties=%s", hubspotBaseURL, contactID, propertiesParam)
 
 	var contact ContactResult
 	if err := c.doRequest(http.MethodGet, url, nil, &contact); err != nil {
@@ -458,13 +470,8 @@ func min(a, b int) int {
 // buildContactInfo builds ContactInfo from a ContactResult
 func buildContactInfo(contact ContactResult) *ContactInfo {
 	return &ContactInfo{
-		ID:             contact.ID,
-		Exists:         true,
-		Email:          contact.Properties["email"],
-		Phone:          contact.Properties["phone"],
-		FirstName:      contact.Properties["firstname"],
-		LastName:       contact.Properties["lastname"],
-		Company:        contact.Properties["company"],
-		LifecycleStage: contact.Properties["lifecyclestage"],
+		ID:         contact.ID,
+		Exists:     true,
+		Properties: contact.Properties,
 	}
 }

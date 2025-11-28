@@ -174,7 +174,7 @@ func (h *Handler) CreateContact(c *gin.Context) {
 		return
 	}
 
-	log.Printf("[Handler] Contact created successfully: ID=%s", response.Entity.ID)
+	log.Printf("[Handler] Contact created successfully: ID=%s", response.ID)
 	c.JSON(http.StatusCreated, response)
 }
 
