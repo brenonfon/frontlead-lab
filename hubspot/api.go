@@ -18,8 +18,7 @@ var (
 	contactProperties = []string{
 		"email",
 		"phone",
-		"firstname",
-		"lastname",
+		"name",
 		"company",
 		"lifecyclestage",
 		"business_needs",
