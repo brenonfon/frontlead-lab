@@ -3,7 +3,7 @@ package main
 import (
 	"log"
 
-	"frontlead-lab/botario"
+	"frontlead-lab/callapi"
 	"frontlead-lab/config"
 	"frontlead-lab/hubspot"
 	"frontlead-lab/server"
@@ -41,18 +41,14 @@ func main() {
 	hsClient := hubspot.NewClient(cfg.HubSpot.APIKey)
 	log.Println("[Main] ✅ HubSpot client initialized")
 
-	// Initialize Botario client
-	log.Println("[Main] Initializing Botario client...")
-	botarioClient := botario.NewClient(cfg.Botario.APIKey)
-	if cfg.Botario.APIKey != "" {
-		log.Printf("[Main] ✅ Botario client initialized with API key: %s", maskAPIKey(cfg.Botario.APIKey))
-	} else {
-		log.Println("[Main] ⚠️  Botario API key not set - voice call feature will be limited")
-	}
+	// Initialize Call API client
+	log.Println("[Main] Initializing Call API client...")
+	callAPIClient := callapi.NewClient(cfg.CallAPI.APIKey)
+	log.Printf("[Main] ✅ Call API client initialized with API key: %s", maskAPIKey(cfg.CallAPI.APIKey))
 
 	// Create and start server
 	log.Println("[Main] Creating HTTP server...")
-	srv := server.New(hsClient, botarioClient, cfg.Server.Port)
+	srv := server.New(hsClient, callAPIClient, cfg.Server.Port)
 
 	log.Println("[Main] Starting server...")
 	if err := srv.Start(); err != nil {

@@ -15,8 +15,8 @@ type Config struct {
 	HubSpot struct {
 		APIKey string `env:"HS_API_KEY,required"`
 	}
-	Botario struct {
-		APIKey string `env:"BOTARIO_API_KEY"`
+	CallAPI struct {
+		APIKey string `env:"CALL_API_KEY,required"`
 	}
 }
 

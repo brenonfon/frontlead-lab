@@ -1,4 +1,4 @@
-package botario
+package callapi
 
 import (
 	"bytes"
@@ -10,18 +10,18 @@ import (
 )
 
 const (
-	botarioBaseURL = "https://gpt.nfon.botario.com/api/bots"
+	callAPIBaseURL = "https://providersupportdata-test.cloud-cfg.com/v1"
 )
 
-// Client represents a Botario API client
+// Client represents a Call API client
 type Client struct {
 	APIKey     string
 	HTTPClient *http.Client
 }
 
-// NewClient creates a new Botario API client
+// NewClient creates a new Call API client
 func NewClient(apiKey string) *Client {
-	log.Println("[Botario] Initializing Botario client...")
+	log.Println("[CallAPI] Initializing Call API client...")
 	return &Client{
 		APIKey: apiKey,
 		HTTPClient: &http.Client{
@@ -30,27 +30,24 @@ func NewClient(apiKey string) *Client {
 	}
 }
 
-// StartCallRequest represents the request to start a call
-type StartCallRequest struct {
-	Phone               string            `json:"phone"`
-	Name                string            `json:"name,omitempty"`
-	LeadID              string            `json:"leadId,omitempty"`
-	Email               string            `json:"email,omitempty"`
-	Company             string            `json:"company,omitempty"`
-	BusinessNeeds       string            `json:"businessNeeds,omitempty"`
-	IntegrationTimeline string            `json:"integrationTimeline,omitempty"`
-	CustomData          map[string]string `json:"customData,omitempty"`
+// MakeCallRequest represents the request to initiate a call
+type MakeCallRequest struct {
+	Extension     string `json:"extension,omitempty"`
+	Caller        string `json:"caller"`
+	CallerContext string `json:"caller_context"`
+	Callee        string `json:"callee"`
+	CalleeContext string `json:"callee_context"`
 }
 
-// StartCallResponse represents the response from Botario
-type StartCallResponse struct {
+// MakeCallResponse represents the response from Call API
+type MakeCallResponse struct {
 	Success bool   `json:"success"`
 	CallID  string `json:"callId,omitempty"`
 	Message string `json:"message,omitempty"`
 	Error   string `json:"error,omitempty"`
 }
 
-// APIError represents an error from the Botario API
+// APIError represents an error from the Call API
 type APIError struct {
 	StatusCode int
 	Message    string
@@ -61,9 +58,9 @@ func (e *APIError) Error() string {
 	return e.Message
 }
 
-// doRequest makes an HTTP request to the Botario API
+// doRequest makes an HTTP request to the Call API
 func (c *Client) doRequest(method, endpoint string, payload interface{}, response interface{}) error {
-	url := botarioBaseURL + endpoint
+	url := callAPIBaseURL + endpoint
 
 	var body []byte
 	var err error
@@ -85,7 +82,7 @@ func (c *Client) doRequest(method, endpoint string, payload interface{}, respons
 		req.Header.Set("Authorization", "Bearer "+c.APIKey)
 	}
 
-	log.Printf("[Botario] %s request to %s", method, url)
+	log.Printf("[CallAPI] %s request to %s", method, url)
 
 	resp, err := c.HTTPClient.Do(req)
 	if err != nil {
@@ -97,8 +94,8 @@ func (c *Client) doRequest(method, endpoint string, payload interface{}, respons
 	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
 		var errorBody bytes.Buffer
 		errorBody.ReadFrom(resp.Body)
-		errorMsg := fmt.Sprintf("Botario API error (status %d): %s", resp.StatusCode, errorBody.String())
-		log.Printf("[Botario] %s", errorMsg)
+		errorMsg := fmt.Sprintf("Call API error (status %d): %s", resp.StatusCode, errorBody.String())
+		log.Printf("[CallAPI] %s", errorMsg)
 		return &APIError{
 			StatusCode: resp.StatusCode,
 			Message:    errorMsg,
@@ -115,16 +112,16 @@ func (c *Client) doRequest(method, endpoint string, payload interface{}, respons
 	return nil
 }
 
-// StartCall initiates a call via Botario
-func (c *Client) StartCall(req StartCallRequest) (*StartCallResponse, error) {
-	log.Printf("[Botario] Starting call to %s (Lead: %s)", req.Phone, req.LeadID)
+// MakeCall initiates a call via Call API
+func (c *Client) MakeCall(req MakeCallRequest) (*MakeCallResponse, error) {
+	log.Printf("[CallAPI] Initiating call from %s to %s (extension: %s)", req.Caller, req.Callee, req.Extension)
 
-	var response StartCallResponse
-	err := c.doRequest(http.MethodPost, "/68ff27a71e00c0ee44698e5b/chats/send-message", req, &response)
+	var response MakeCallResponse
+	err := c.doRequest(http.MethodPost, "/extensions/phone/calls", req, &response)
 	if err != nil {
 		return nil, err
 	}
 
-	log.Printf("[Botario] Call started successfully - CallID: %s", response.CallID)
+	log.Printf("[CallAPI] Call initiated successfully - CallID: %s", response.CallID)
 	return &response, nil
 }
