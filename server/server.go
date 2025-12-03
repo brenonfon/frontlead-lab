@@ -3,6 +3,7 @@ package server
 import (
 	"log"
 
+	"frontlead-lab/botario"
 	"frontlead-lab/hubspot"
 
 	"github.com/gin-gonic/gin"
@@ -16,12 +17,12 @@ type Server struct {
 }
 
 // New creates a new HTTP server instance
-func New(hsClient *hubspot.Client, port string) *Server {
+func New(hsClient *hubspot.Client, botarioClient *botario.Client, port string) *Server {
 	// Disable Gin debug logs
 	gin.SetMode(gin.ReleaseMode)
 
 	router := gin.Default()
-	handler := NewHandler(hsClient)
+	handler := NewHandler(hsClient, botarioClient)
 
 	s := &Server{
 		router:  router,
@@ -44,6 +45,9 @@ func (s *Server) setupRoutes() {
 	s.router.POST("/contacts", s.handler.CreateContact)
 	s.router.PATCH("/contacts/phone/:phone", s.handler.UpdateContactByPhone)
 	s.router.PATCH("/contacts/id/:id", s.handler.UpdateContactByID)
+
+	// Bridge endpoint between HubSpot and Botario
+	s.router.POST("/trigger-call", s.handler.TriggerVoiceCall)
 }
 
 // Start starts the HTTP server
@@ -55,6 +59,7 @@ func (s *Server) Start() error {
 	log.Printf("  POST   /contacts                    - Create a new contact in HubSpot")
 	log.Printf("  PATCH  /contacts/phone/:phone       - Update a contact by phone number")
 	log.Printf("  PATCH  /contacts/id/:id             - Update a contact by HubSpot ID")
+	log.Printf("  POST   /trigger-call                - Bridge endpoint: HubSpot → Botario voice call")
 
 	return s.router.Run(addr)
 }

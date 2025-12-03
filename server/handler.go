@@ -6,6 +6,7 @@ import (
 	"net/http"
 	"strconv"
 
+	"frontlead-lab/botario"
 	"frontlead-lab/hubspot"
 
 	"github.com/gin-gonic/gin"
@@ -13,13 +14,15 @@ import (
 
 // Handler holds the dependencies for HTTP handlers
 type Handler struct {
-	hsClient *hubspot.Client
+	hsClient      *hubspot.Client
+	botarioClient *botario.Client
 }
 
 // NewHandler creates a new Handler instance
-func NewHandler(hsClient *hubspot.Client) *Handler {
+func NewHandler(hsClient *hubspot.Client, botarioClient *botario.Client) *Handler {
 	return &Handler{
-		hsClient: hsClient,
+		hsClient:      hsClient,
+		botarioClient: botarioClient,
 	}
 }
 
@@ -227,4 +230,78 @@ func (h *Handler) UpdateContactByID(c *gin.Context) {
 
 	log.Printf("[Handler] Contact updated successfully: ID=%s", response.ID)
 	c.JSON(http.StatusOK, response)
+}
+
+// HubSpotWebhookRequest represents the incoming request from HubSpot's custom code action
+type HubSpotWebhookRequest struct {
+	Phone      string                 `json:"phone" binding:"required"`
+	Name       string                 `json:"name"`
+	LeadID     string                 `json:"leadId"`
+	Company    string                 `json:"company"`
+	Properties map[string]interface{} `json:"properties"`
+}
+
+// TriggerVoiceCall handles POST /trigger-call - bridge endpoint between HubSpot and Botario
+// This endpoint receives calls from HubSpot's custom code action and forwards them to Botario
+func (h *Handler) TriggerVoiceCall(c *gin.Context) {
+	var req HubSpotWebhookRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		log.Printf("[Handler] Invalid trigger-call request: %v", err)
+		c.JSON(http.StatusBadRequest, gin.H{
+			"success": false,
+			"error":   "invalid request body: " + err.Error(),
+		})
+		return
+	}
+
+	log.Printf("[Handler] TriggerVoiceCall request: phone=%s, leadId=%s, name=%s", req.Phone, req.LeadID, req.Name)
+
+	// Prepare custom data from extra fields
+	customData := make(map[string]string)
+	for key, value := range req.Properties {
+		if strVal, ok := value.(string); ok {
+			customData[key] = strVal
+		}
+	}
+
+	// Build Botario request
+	botarioReq := botario.StartCallRequest{
+		Phone:      req.Phone,
+		Name:       req.Name,
+		LeadID:     req.LeadID,
+		Company:    req.Company,
+		CustomData: customData,
+	}
+
+	// Call Botario API
+	log.Printf("[Handler] Forwarding call request to Botario for phone: %s", req.Phone)
+	response, err := h.botarioClient.StartCall(botarioReq)
+	if err != nil {
+		log.Printf("[Handler] Error calling Botario API: %v", err)
+
+		var apiErr *botario.APIError
+		statusCode := http.StatusInternalServerError
+		if errors.As(err, &apiErr) {
+			statusCode = apiErr.StatusCode
+		}
+
+		c.JSON(statusCode, gin.H{
+			"success": false,
+			"error":   err.Error(),
+		})
+		return
+	}
+
+	log.Printf("[Handler] Botario call triggered successfully - CallID: %s", response.CallID)
+
+	// Return success response to HubSpot
+	c.JSON(http.StatusOK, gin.H{
+		"success": true,
+		"callId":  response.CallID,
+		"message": response.Message,
+		"outputFields": map[string]interface{}{
+			"callId":     response.CallID,
+			"callStatus": "initiated",
+		},
+	})
 }

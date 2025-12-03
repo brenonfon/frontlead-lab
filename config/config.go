@@ -15,6 +15,9 @@ type Config struct {
 	HubSpot struct {
 		APIKey string `env:"HS_API_KEY,required"`
 	}
+	Botario struct {
+		APIKey string `env:"BOTARIO_API_KEY"`
+	}
 }
 
 // Load loads configuration from .env file and environment variables
