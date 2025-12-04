@@ -310,7 +310,7 @@ func (h *Handler) startCallWithAgent(properties map[string]string) {
 	// Build Call API request
 	callReq := callapi.MakeCallRequest{
 		Extension:     agent.Extension,
-		Caller:        agent.ExternalNr,
+		Caller:        agent.Extension,
 		CallerContext: agent.Customer,
 		Callee:        h.callAPIClient.BOT,
 		CalleeContext: "global",
