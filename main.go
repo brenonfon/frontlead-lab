@@ -43,7 +43,7 @@ func main() {
 
 	// Initialize Call API client
 	log.Println("[Main] Initializing Call API client...")
-	callAPIClient := callapi.NewClient(cfg.CallAPI.APIKey)
+	callAPIClient := callapi.NewClient(cfg.CallAPI.APIKey, cfg.CallAPI.Bot, cfg.CallAPI.Agents)
 	log.Printf("[Main] ✅ Call API client initialized with API key: %s", maskAPIKey(cfg.CallAPI.APIKey))
 
 	// Create and start server

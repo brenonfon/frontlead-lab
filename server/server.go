@@ -40,14 +40,17 @@ func (s *Server) setupRoutes() {
 	// Apply middleware to all routes
 	s.router.Use(LoggingMiddleware())
 
-	// Contact routes
+	// HubSpot contact routes
 	s.router.GET("/contacts", s.handler.GetContacts)
 	s.router.POST("/contacts", s.handler.CreateContact)
 	s.router.PATCH("/contacts/phone/:phone", s.handler.UpdateContactByPhone)
 	s.router.PATCH("/contacts/id/:id", s.handler.UpdateContactByID)
 
-	// Bridge endpoint between HubSpot and Botario
+	// Bridge endpoint between HubSpot and Call API
 	s.router.POST("/trigger-call", s.handler.TriggerVoiceCall)
+
+	// Agent routes
+	s.router.GET("/agent/ready/:phone", s.handler.CheckAgentReady)
 }
 
 // Start starts the HTTP server
@@ -60,6 +63,7 @@ func (s *Server) Start() error {
 	log.Printf("  PATCH  /contacts/phone/:phone       - Update a contact by phone number")
 	log.Printf("  PATCH  /contacts/id/:id             - Update a contact by HubSpot ID")
 	log.Printf("  POST   /trigger-call                - Bridge endpoint: HubSpot → Call API voice call")
+	log.Printf("  GET    /agent/ready/:phone          - Check if agent is ready for customer")
 
 	return s.router.Run(addr)
 }

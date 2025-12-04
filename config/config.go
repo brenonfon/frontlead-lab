@@ -16,7 +16,9 @@ type Config struct {
 		APIKey string `env:"HS_API_KEY,required"`
 	}
 	CallAPI struct {
-		APIKey string `env:"CALL_API_KEY,required"`
+		APIKey string   `env:"CALL_API_KEY,required"`
+		Agents []string `env:"CALL_API_AGENTS" envSeparator:","`
+		Bot    string   `env:"CALL_API_BOT,required"`
 	}
 }
 

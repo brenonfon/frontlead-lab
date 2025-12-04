@@ -6,6 +6,8 @@ require (
 	github.com/caarlos0/env/v6 v6.10.1
 	github.com/gin-gonic/gin v1.11.0
 	github.com/joho/godotenv v1.5.1
+	github.com/r3labs/sse/v2 v2.10.0
+	gopkg.in/cenkalti/backoff.v1 v1.1.0
 )
 
 require (

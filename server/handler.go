@@ -178,6 +178,10 @@ func (h *Handler) CreateContact(c *gin.Context) {
 	}
 
 	log.Printf("[Handler] Contact created successfully: ID=%s", response.ID)
+
+	// Trigger call with agent in background (non-blocking)
+	go h.startCallWithAgent(req.Properties)
+
 	c.JSON(http.StatusCreated, response)
 }
 
@@ -206,6 +210,10 @@ func (h *Handler) UpdateContactByPhone(c *gin.Context) {
 	}
 
 	log.Printf("[Handler] Contact updated successfully: ID=%s", response.ID)
+
+	// Trigger call with agent in background (non-blocking)
+	go h.startCallWithAgent(req.Properties)
+
 	c.JSON(http.StatusOK, response)
 }
 
@@ -229,6 +237,10 @@ func (h *Handler) UpdateContactByID(c *gin.Context) {
 	}
 
 	log.Printf("[Handler] Contact updated successfully: ID=%s", response.ID)
+
+	// Trigger call with agent in background (non-blocking)
+	go h.startCallWithAgent(req.Properties)
+
 	c.JSON(http.StatusOK, response)
 }
 
@@ -280,4 +292,67 @@ func (h *Handler) TriggerVoiceCall(c *gin.Context) {
 
 	// Return success response to HubSpot
 	c.Status(http.StatusOK)
+}
+
+func (h *Handler) startCallWithAgent(properties map[string]string) {
+	// Find an available agent
+	// If found, mark as unavailable and initiate the call
+	// If not found, log that no agents are available
+	agent := h.callAPIClient.GetAvailableAgent()
+	if agent == nil {
+		log.Printf("[Handler] No available agents to handle the call")
+		return
+	}
+
+	log.Printf("[Handler] Assigning call to agent: %s", agent.Phone)
+	agent.SetAvailability(false)
+
+	// Build Call API request
+	callReq := callapi.MakeCallRequest{
+		Caller:        h.callAPIClient.BOT,
+		CallerContext: "global",
+		Callee:        agent.Phone,
+		CalleeContext: "global",
+	}
+
+	// Call the Call API
+	log.Printf("[Handler] Initiating call via Call API for phone: %s", properties["phone"])
+	response, err := h.callAPIClient.MakeCall(callReq)
+	if err != nil {
+		log.Printf("[Handler] Error calling Call API: %v", err)
+		agent.SetAvailability(true) // Revert availability on error
+		return
+	}
+	callapi.AddActiveAgent(properties["phone"], agent)
+
+	log.Printf("[Handler] Call initiated successfully - CallID: %s", response.CallID)
+}
+
+// CheckAgentReady handles GET /agent/ready/:phone - checks if an agent is ready for a customer
+func (h *Handler) CheckAgentReady(c *gin.Context) {
+	phone := c.Param("phone")
+
+	if phone == "" {
+		log.Printf("[Handler] Bad request: phone parameter is missing")
+		c.JSON(http.StatusBadRequest, gin.H{"error": "phone parameter is required"})
+		return
+	}
+
+	log.Printf("[Handler] CheckAgentReady request: phone=%s", phone)
+
+	isReady := callapi.IsAgentReady(phone)
+	agentPhone, exists := callapi.GetAgentPhone(phone)
+
+	response := gin.H{
+		"customer": phone,
+		"isReady":  isReady,
+		"exists":   exists,
+	}
+
+	if exists {
+		response["agentPhone"] = agentPhone
+	}
+
+	log.Printf("[Handler] Agent ready check completed: customer=%s, exists=%v, isReady=%v", phone, exists, isReady)
+	c.JSON(http.StatusOK, response)
 }
