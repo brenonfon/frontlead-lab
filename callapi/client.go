@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"log"
 	"net/http"
+	"strings"
 	"time"
 
 	"github.com/r3labs/sse/v2"
@@ -38,12 +39,20 @@ type callEvent struct {
 }
 
 // NewClient creates a new Call API client
-func NewClient(apiKey, bot string, phones []string) *Client {
+func NewClient(apiKey, bot string, agentsCfg []string) *Client {
 	log.Println("[CallAPI] Initializing Call API client...")
-	agents := make([]*SalesAgent, 0, len(phones))
-	for _, phone := range phones {
+	agents := make([]*SalesAgent, 0, len(agentsCfg))
+	for _, agentStr := range agentsCfg {
+		agentSplt := strings.SplitN(agentStr, ":", 2)
+		if len(agentSplt) != 2 {
+			log.Printf("[CallAPI] Warning: Invalid agent configuration: %s", agentStr)
+			continue
+		}
+		extension := agentSplt[0]
+		customer := agentSplt[1]
 		agent := &SalesAgent{
-			Phone:       phone,
+			Extension:   extension,
+			Customer:    customer,
 			IsAvailable: true,
 		}
 		agents = append(agents, agent)

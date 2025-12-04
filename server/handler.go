@@ -304,14 +304,15 @@ func (h *Handler) startCallWithAgent(properties map[string]string) {
 		return
 	}
 
-	log.Printf("[Handler] Assigning call to agent: %s", agent.Phone)
+	log.Printf("[Handler] Assigning call to agent: %s", agent)
 	agent.SetAvailability(false)
 
 	// Build Call API request
 	callReq := callapi.MakeCallRequest{
-		Caller:        h.callAPIClient.BOT,
-		CallerContext: "global",
-		Callee:        agent.Phone,
+		Extension:     agent.Extension,
+		Caller:        agent.Extension,
+		CallerContext: agent.Customer,
+		Callee:        h.callAPIClient.BOT,
 		CalleeContext: "global",
 	}
 

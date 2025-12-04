@@ -1,6 +1,7 @@
 package callapi
 
 import (
+	"fmt"
 	"log"
 )
 
@@ -11,8 +12,13 @@ var (
 type Customer string
 
 type SalesAgent struct {
-	Phone       string
+	Customer    string
+	Extension   string
 	IsAvailable bool
+}
+
+func (s *SalesAgent) String() string {
+	return fmt.Sprintf("%s@%s", s.Extension, s.Customer)
 }
 
 type ActiveSalesAgent struct {
@@ -27,10 +33,10 @@ func (s *SalesAgent) SetAvailability(isAvailable bool) {
 // AddActiveAgent adds or updates an active agent for a customer
 func AddActiveAgent(customer string, agent *SalesAgent) {
 	activeAgents[Customer(customer)] = &ActiveSalesAgent{
-		phone:   agent.Phone,
+		phone:   agent.Customer,
 		isReady: false,
 	}
-	log.Printf("[CallAPI] Added/Updated active agent for customer %s: agent=%s", customer, agent.Phone)
+	log.Printf("[CallAPI] Added/Updated active agent for customer %s: agent=%s", customer, agent)
 }
 
 // DeleteActiveAgent removes an active agent for a customer
