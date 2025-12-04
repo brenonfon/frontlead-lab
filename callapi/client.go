@@ -125,6 +125,13 @@ func (c *Client) listenToCallEvents() {
 				if event.LegB == c.BOT {
 					if SetActiveAgentReady(event.LegA, true) {
 						log.Printf("[CallAPI] Agent marked as ready after call hangup: %s", event.LegA)
+						agent := c.GetAgentByExternalNr(event.LegA)
+						if agent != nil {
+							agent.SetAvailability(true)
+							log.Printf("[CallAPI] Agent %s set to available", agent)
+						} else {
+							log.Printf("[CallAPI] Agent %s not found", event.LegA)
+						}
 					} else {
 						log.Printf("[CallAPI] Agent %s not found", event.LegA)
 					}
@@ -143,6 +150,15 @@ func (c *Client) Close() {
 func (c *Client) GetAvailableAgent() *SalesAgent {
 	for _, agent := range c.Agents {
 		if agent.IsAvailable {
+			return agent
+		}
+	}
+	return nil
+}
+
+func (c *Client) GetAgentByExternalNr(externalNr string) *SalesAgent {
+	for _, agent := range c.Agents {
+		if agent.ExternalNr == externalNr {
 			return agent
 		}
 	}

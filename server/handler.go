@@ -180,7 +180,7 @@ func (h *Handler) CreateContact(c *gin.Context) {
 	log.Printf("[Handler] Contact created successfully: ID=%s", response.ID)
 
 	// Trigger call with agent in background (non-blocking)
-	go h.startCallWithAgent(req.Properties)
+	go h.startCallWithAgent(req.Properties["phone"])
 
 	c.JSON(http.StatusCreated, response)
 }
@@ -212,7 +212,7 @@ func (h *Handler) UpdateContactByPhone(c *gin.Context) {
 	log.Printf("[Handler] Contact updated successfully: ID=%s", response.ID)
 
 	// Trigger call with agent in background (non-blocking)
-	go h.startCallWithAgent(req.Properties)
+	go h.startCallWithAgent(req.Properties["phone"])
 
 	c.JSON(http.StatusOK, response)
 }
@@ -239,7 +239,7 @@ func (h *Handler) UpdateContactByID(c *gin.Context) {
 	log.Printf("[Handler] Contact updated successfully: ID=%s", response.ID)
 
 	// Trigger call with agent in background (non-blocking)
-	go h.startCallWithAgent(req.Properties)
+	go h.startCallWithAgent(req.Properties["phone"])
 
 	c.JSON(http.StatusOK, response)
 }
@@ -294,7 +294,7 @@ func (h *Handler) TriggerVoiceCall(c *gin.Context) {
 	c.Status(http.StatusOK)
 }
 
-func (h *Handler) startCallWithAgent(properties map[string]string) {
+func (h *Handler) startCallWithAgent(phone string) {
 	// Find an available agent
 	// If found, mark as unavailable and initiate the call
 	// If not found, log that no agents are available
@@ -317,14 +317,14 @@ func (h *Handler) startCallWithAgent(properties map[string]string) {
 	}
 
 	// Call the Call API
-	log.Printf("[Handler] Initiating call via Call API for phone: %s", properties["phone"])
+	log.Printf("[Handler] Initiating call via Call API for phone: %s", phone)
 	response, err := h.callAPIClient.MakeCall(callReq)
 	if err != nil {
 		log.Printf("[Handler] Error calling Call API: %v", err)
 		agent.SetAvailability(true) // Revert availability on error
 		return
 	}
-	callapi.AddActiveAgent(properties["phone"], agent)
+	callapi.AddActiveAgent(phone, agent)
 
 	log.Printf("[Handler] Call initiated successfully - CallID: %s", response.CallID)
 }
