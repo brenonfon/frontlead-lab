@@ -43,8 +43,8 @@ func NewClient(apiKey, bot string, agentsCfg []string) *Client {
 	log.Println("[CallAPI] Initializing Call API client...")
 	agents := make([]*SalesAgent, 0, len(agentsCfg))
 	for _, agentStr := range agentsCfg {
-		agentSplt := strings.SplitN(agentStr, ":", 2)
-		if len(agentSplt) != 2 {
+		agentSplt := strings.SplitN(agentStr, ":", 3)
+		if len(agentSplt) != 3 {
 			log.Printf("[CallAPI] Warning: Invalid agent configuration: %s", agentStr)
 			continue
 		}
