@@ -14,11 +14,12 @@ type Customer string
 type SalesAgent struct {
 	Customer    string
 	Extension   string
+	ExternalNr  string
 	IsAvailable bool
 }
 
 func (s *SalesAgent) String() string {
-	return fmt.Sprintf("%s@%s", s.Extension, s.Customer)
+	return fmt.Sprintf("%s@%s-%s", s.Extension, s.Customer, s.ExternalNr)
 }
 
 type ActiveSalesAgent struct {
@@ -33,7 +34,7 @@ func (s *SalesAgent) SetAvailability(isAvailable bool) {
 // AddActiveAgent adds or updates an active agent for a customer
 func AddActiveAgent(customer string, agent *SalesAgent) {
 	activeAgents[Customer(customer)] = &ActiveSalesAgent{
-		phone:   agent.Customer,
+		phone:   agent.ExternalNr,
 		isReady: false,
 	}
 	log.Printf("[CallAPI] Added/Updated active agent for customer %s: agent=%s", customer, agent)
@@ -48,13 +49,13 @@ func DeleteActiveAgent(customer string) {
 }
 
 // SetActiveAgentReady updates the ready status of an active agent
-func SetActiveAgentReady(customer string, isReady bool) bool {
-	if agent, exists := activeAgents[Customer(customer)]; exists {
-		agent.isReady = isReady
-		log.Printf("[CallAPI] Updated ready status for customer %s: isReady=%t", customer, isReady)
-		return true
+func SetActiveAgentReady(agentExternalNr string, isReady bool) bool {
+	for _, agent := range activeAgents {
+		if agent.phone == agentExternalNr {
+			agent.isReady = isReady
+			return true
+		}
 	}
-	log.Printf("[CallAPI] Customer %s not found in active agents", customer)
 	return false
 }
 

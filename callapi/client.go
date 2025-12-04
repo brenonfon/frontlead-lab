@@ -50,9 +50,11 @@ func NewClient(apiKey, bot string, agentsCfg []string) *Client {
 		}
 		extension := agentSplt[0]
 		customer := agentSplt[1]
+		externalNr := agentSplt[2]
 		agent := &SalesAgent{
 			Extension:   extension,
 			Customer:    customer,
+			ExternalNr:  externalNr,
 			IsAvailable: true,
 		}
 		agents = append(agents, agent)
@@ -120,14 +122,12 @@ func (c *Client) listenToCallEvents() {
 
 			// Check if the call has ended and update agent availability
 			if event.State == "hangup" {
-				// LegB is the customer's phone number (callee)
-				customerPhone := event.LegB
-
-				// Check if there's an active agent for this customer
-				if SetActiveAgentReady(customerPhone, true) {
-					log.Printf("[CallAPI] Agent marked as ready after call hangup for customer: %s", customerPhone)
-				} else {
-					log.Printf("[CallAPI] No active agent found for customer: %s", customerPhone)
+				if event.LegB == c.BOT {
+					if SetActiveAgentReady(event.LegA, true) {
+						log.Printf("[CallAPI] Agent marked as ready after call hangup: %s", event.LegA)
+					} else {
+						log.Printf("[CallAPI] Agent %s not found", event.LegA)
+					}
 				}
 			}
 		}
