@@ -14,8 +14,7 @@ import (
 )
 
 const (
-	callAPIBaseURL = "https://providersupportdata-test.cloud-cfg.com/v1"
-	sseURL         = "https://providersupportdata.cloud-cfg.com/v1/extensions/phone/calls"
+	callAPIBaseURL = "https://providersupportdata.cloud-cfg.com/v1"
 )
 
 // Client represents a Call API client
@@ -53,7 +52,7 @@ func NewClient(apiKey, bot string, phones []string) *Client {
 	ctx, cancel := context.WithCancel(context.Background())
 
 	// Create SSE client
-	sseClient := sse.NewClient(sseURL)
+	sseClient := sse.NewClient(callAPIBaseURL + "/extensions/phone/calls")
 	sseClient.ReconnectStrategy = &backoff.StopBackOff{}
 	sseClient.Connection = &http.Client{}
 	sseClient.Headers = map[string]string{
