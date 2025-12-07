@@ -85,3 +85,13 @@ func GetActiveAgent(customer string) (*ActiveSalesAgent, bool) {
 func GetAllActiveAgents() map[Customer]*ActiveSalesAgent {
 	return activeAgents
 }
+
+// GetCustomerByAgentPhone retrieves the customer phone number by agent phone
+func GetCustomerByAgentPhone(agentPhone string) (string, bool) {
+	for customer, agent := range activeAgents {
+		if agent.phone == agentPhone {
+			return string(customer), true
+		}
+	}
+	return "", false
+}

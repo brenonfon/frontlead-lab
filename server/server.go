@@ -42,6 +42,7 @@ func (s *Server) setupRoutes() {
 
 	// HubSpot contact routes
 	s.router.GET("/contacts", s.handler.GetContacts)
+	s.router.GET("/contacts/agent/:agentPhone", s.handler.GetContactByAgent)
 	s.router.POST("/contacts", s.handler.CreateContact)
 	s.router.PATCH("/contacts/phone/:phone", s.handler.UpdateContactByPhone)
 	s.router.PATCH("/contacts/id/:id", s.handler.UpdateContactByID)
@@ -59,6 +60,7 @@ func (s *Server) Start() error {
 	log.Printf("🚀 Server starting on http://localhost%s", addr)
 	log.Printf("Routes:")
 	log.Printf("  GET    /contacts                    - Get all contacts or check specific contact (query: ?email=, ?phone=, or ?id=)")
+	log.Printf("  GET    /contacts/agent/:agentPhone  - Get contact info by agent phone number")
 	log.Printf("  POST   /contacts                    - Create a new contact in HubSpot")
 	log.Printf("  PATCH  /contacts/phone/:phone       - Update a contact by phone number")
 	log.Printf("  PATCH  /contacts/id/:id             - Update a contact by HubSpot ID")

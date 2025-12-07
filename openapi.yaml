@@ -1,0 +1,592 @@
+openapi: 3.0.3
+info:
+  title: FrontLead Lab API
+  description: |
+    API for managing HubSpot contacts and integrating with voice call services.
+    This service acts as a bridge between HubSpot CRM and the Call API for voice bot functionality.
+  version: 1.0.0
+  contact:
+    name: FrontLead Team
+
+servers:
+  - url: http://localhost:8081
+    description: Local development server
+
+paths:
+  /contacts:
+    get:
+      summary: Get contacts
+      description: |
+        Unified endpoint for retrieving contacts. Can search by email, phone, or ID,
+        or list all contacts with pagination.
+      operationId: getContacts
+      tags:
+        - Contacts
+      parameters:
+        - name: email
+          in: query
+          description: Search contact by email address
+          schema:
+            type: string
+            format: email
+          example: "john@example.com"
+        - name: phone
+          in: query
+          description: Search contact by phone number
+          schema:
+            type: string
+          example: "+351918253235"
+        - name: id
+          in: query
+          description: Search contact by HubSpot ID
+          schema:
+            type: string
+          example: "123456789"
+        - name: limit
+          in: query
+          description: Maximum number of contacts to return (default 10)
+          schema:
+            type: integer
+            default: 10
+            minimum: 1
+        - name: after
+          in: query
+          description: Pagination cursor for fetching next page
+          schema:
+            type: string
+        - name: archived
+          in: query
+          description: Include archived contacts
+          schema:
+            type: boolean
+            default: false
+        - name: properties
+          in: query
+          description: Specific properties to include in response
+          schema:
+            type: array
+            items:
+              type: string
+          style: form
+          explode: true
+      responses:
+        '200':
+          description: Successful response
+          content:
+            application/json:
+              schema:
+                oneOf:
+                  - $ref: '#/components/schemas/ContactInfo'
+                  - $ref: '#/components/schemas/GetAllContactsResponse'
+        '500':
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+    post:
+      summary: Create a new contact
+      description: |
+        Creates a new contact in HubSpot. At least email or phone property is required.
+        After successful creation, triggers a call with an available agent in the background.
+      operationId: createContact
+      tags:
+        - Contacts
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateContactRequest'
+            example:
+              properties:
+                email: "john@example.com"
+                phone: "+351918253235"
+                name: "John Doe"
+                company: "ACME Corp"
+      responses:
+        '201':
+          description: Contact created successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CreateContactResponse'
+        '400':
+          description: Bad request - invalid body or missing required properties
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '500':
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /contacts/agent/{agentPhone}:
+    get:
+      summary: Get contact by agent phone
+      description: |
+        Retrieves the contact information for the customer currently being handled by the specified agent.
+        Looks up the customer phone number from the active agents map and fetches the contact from HubSpot.
+      operationId: getContactByAgent
+      tags:
+        - Contacts
+      parameters:
+        - name: agentPhone
+          in: path
+          required: true
+          description: Phone number of the agent
+          schema:
+            type: string
+          example: "00351918253235"
+      responses:
+        '200':
+          description: Contact information retrieved successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ContactInfo'
+        '400':
+          description: Bad request - agentPhone parameter missing
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: No active customer found for this agent
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '500':
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /contacts/phone/{phone}:
+    patch:
+      summary: Update contact by phone number
+      description: |
+        Updates a contact in HubSpot identified by phone number.
+        After successful update, triggers a call with an available agent in the background.
+      operationId: updateContactByPhone
+      tags:
+        - Contacts
+      parameters:
+        - name: phone
+          in: path
+          required: true
+          description: Phone number of the contact to update
+          schema:
+            type: string
+          example: "+351918253235"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateContactRequest'
+            example:
+              properties:
+                name: "John Doe Updated"
+                company: "New Company"
+      responses:
+        '200':
+          description: Contact updated successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UpdateContactResponse'
+        '400':
+          description: Bad request - invalid body
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: Contact not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '500':
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /contacts/id/{id}:
+    patch:
+      summary: Update contact by HubSpot ID
+      description: |
+        Updates a contact in HubSpot identified by its HubSpot ID.
+        After successful update, triggers a call with an available agent in the background.
+      operationId: updateContactByID
+      tags:
+        - Contacts
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: HubSpot ID of the contact to update
+          schema:
+            type: string
+          example: "123456789"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateContactRequest'
+            example:
+              properties:
+                name: "John Doe Updated"
+                lifecyclestage: "customer"
+      responses:
+        '200':
+          description: Contact updated successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UpdateContactResponse'
+        '400':
+          description: Bad request - invalid body
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: Contact not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '500':
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /trigger-call:
+    post:
+      summary: Trigger voice call
+      description: |
+        Bridge endpoint between HubSpot and Call API.
+        Receives a phone number and initiates a voice call via the Call API.
+      operationId: triggerVoiceCall
+      tags:
+        - Call API
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/TriggerCallRequest'
+            example:
+              phone: "+351918253235"
+      responses:
+        '200':
+          description: Call initiated successfully
+        '400':
+          description: Bad request - invalid body or missing phone
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TriggerCallError'
+        '500':
+          description: Call API error
+          
+  /agent/ready/{phone}:
+    get:
+      summary: Check if agent is ready
+      description: |
+        Checks if an agent is ready to handle calls for a specific customer phone number.
+        Returns the agent's status and phone number if an active agent exists.
+      operationId: checkAgentReady
+      tags:
+        - Agents
+      parameters:
+        - name: phone
+          in: path
+          required: true
+          description: Customer phone number to check agent readiness for
+          schema:
+            type: string
+          example: "+351918253235"
+      responses:
+        '200':
+          description: Agent status retrieved successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AgentReadyResponse'
+        '400':
+          description: Bad request - phone parameter missing
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+components:
+  schemas:
+    ContactInfo:
+      type: object
+      description: Simplified contact information
+      properties:
+        exists:
+          type: boolean
+          description: Whether the contact exists
+        id:
+          type: string
+          description: HubSpot contact ID
+        properties:
+          type: object
+          additionalProperties:
+            type: string
+          description: Contact properties
+      required:
+        - exists
+
+    ContactResult:
+      type: object
+      description: Single contact result from HubSpot
+      properties:
+        id:
+          type: string
+          description: HubSpot contact ID
+        properties:
+          type: object
+          additionalProperties:
+            type: string
+          description: Contact properties
+        createdAt:
+          type: string
+          format: date-time
+          description: Contact creation timestamp
+        updatedAt:
+          type: string
+          format: date-time
+          description: Contact last update timestamp
+        archived:
+          type: boolean
+          description: Whether the contact is archived
+      required:
+        - id
+        - properties
+
+    PagingNext:
+      type: object
+      description: Pagination cursor information
+      properties:
+        after:
+          type: string
+          description: Cursor for next page
+        link:
+          type: string
+          description: Link to next page
+
+    Paging:
+      type: object
+      description: Pagination details
+      properties:
+        next:
+          $ref: '#/components/schemas/PagingNext'
+        prev:
+          $ref: '#/components/schemas/PagingNext'
+
+    GetAllContactsResponse:
+      type: object
+      description: Response from listing all contacts
+      properties:
+        results:
+          type: array
+          items:
+            $ref: '#/components/schemas/ContactResult'
+        paging:
+          $ref: '#/components/schemas/Paging'
+      required:
+        - results
+
+    AssociationType:
+      type: object
+      description: Type of association between CRM objects
+      properties:
+        associationCategory:
+          type: string
+          description: Category of association
+        associationTypeId:
+          type: integer
+          description: ID of the association type
+      required:
+        - associationCategory
+        - associationTypeId
+
+    AssociationTo:
+      type: object
+      description: Target of an association
+      properties:
+        id:
+          type: string
+          description: ID of the target object
+      required:
+        - id
+
+    Association:
+      type: object
+      description: Association with another CRM object
+      properties:
+        to:
+          $ref: '#/components/schemas/AssociationTo'
+        types:
+          type: array
+          items:
+            $ref: '#/components/schemas/AssociationType'
+      required:
+        - to
+        - types
+
+    CreateContactRequest:
+      type: object
+      description: Request to create a new contact
+      properties:
+        properties:
+          type: object
+          additionalProperties:
+            type: string
+          description: |
+            Contact properties. At least email or phone is required.
+            Available properties: email, phone, name, company, lifecyclestage,
+            business_needs, integration_timeline, seats_or_extensions,
+            last_offer_summary, interest_topic, interest_source, campaign_offer
+        associations:
+          type: array
+          items:
+            $ref: '#/components/schemas/Association'
+          description: Associations with other CRM objects
+      required:
+        - properties
+
+    CreateContactResponse:
+      type: object
+      description: Response from creating a contact
+      properties:
+        id:
+          type: string
+          description: HubSpot contact ID
+        properties:
+          type: object
+          additionalProperties:
+            type: string
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+        archived:
+          type: boolean
+      required:
+        - id
+        - properties
+
+    UpdateContactRequest:
+      type: object
+      description: Request to update a contact
+      properties:
+        properties:
+          type: object
+          additionalProperties:
+            type: string
+          description: Properties to update
+      required:
+        - properties
+
+    UpdateContactResponse:
+      type: object
+      description: Response from updating a contact
+      properties:
+        id:
+          type: string
+          description: HubSpot contact ID
+        properties:
+          type: object
+          additionalProperties:
+            type: string
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+        archived:
+          type: boolean
+      required:
+        - id
+        - properties
+
+    TriggerCallRequest:
+      type: object
+      description: Request to trigger a voice call
+      properties:
+        phone:
+          type: string
+          description: Phone number to call
+      required:
+        - phone
+
+    TriggerCallError:
+      type: object
+      description: Error response from trigger call
+      properties:
+        success:
+          type: boolean
+          example: false
+        error:
+          type: string
+          description: Error message
+
+    AgentReadyResponse:
+      type: object
+      description: Response for agent ready check
+      properties:
+        customer:
+          type: string
+          description: Customer phone number
+        isReady:
+          type: boolean
+          description: Whether the agent is ready
+        exists:
+          type: boolean
+          description: Whether an active agent exists for this customer
+        agentPhone:
+          type: string
+          description: Agent's phone number (only if exists is true)
+      required:
+        - customer
+        - isReady
+        - exists
+
+    Error:
+      type: object
+      description: Generic error response
+      properties:
+        error:
+          type: string
+          description: Error message
+      required:
+        - error
+
+tags:
+  - name: Contacts
+    description: HubSpot contact management operations
+  - name: Call API
+    description: Voice call integration endpoints
+  - name: Agents
+    description: Agent availability and status operations

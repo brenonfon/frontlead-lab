@@ -266,9 +266,9 @@ func (h *Handler) TriggerVoiceCall(c *gin.Context) {
 
 	// Build Call API request
 	callReq := callapi.MakeCallRequest{
-		Caller:        req.Phone,
+		Caller:        "498920171680",
 		CallerContext: "global",
-		Callee:        "498920171680",
+		Callee:        req.Phone,
 		CalleeContext: "global",
 	}
 
@@ -356,4 +356,37 @@ func (h *Handler) CheckAgentReady(c *gin.Context) {
 
 	log.Printf("[Handler] Agent ready check completed: customer=%s, exists=%v, isReady=%v", phone, exists, isReady)
 	c.JSON(http.StatusOK, response)
+}
+
+// GetContactByAgent handles GET /contacts/agent/:agentPhone - gets contact info by agent phone
+func (h *Handler) GetContactByAgent(c *gin.Context) {
+	agentPhone := c.Param("agentPhone")
+
+	if agentPhone == "" {
+		log.Printf("[Handler] Bad request: agentPhone parameter is missing")
+		c.JSON(http.StatusBadRequest, gin.H{"error": "agentPhone parameter is required"})
+		return
+	}
+
+	log.Printf("[Handler] GetContactByAgent request: agentPhone=%s", agentPhone)
+
+	// Get customer phone from active agents map
+	customerPhone, exists := callapi.GetCustomerByAgentPhone(agentPhone)
+	if !exists {
+		log.Printf("[Handler] No active customer found for agent: %s", agentPhone)
+		c.JSON(http.StatusNotFound, gin.H{"error": "no active customer found for this agent"})
+		return
+	}
+
+	log.Printf("[Handler] Found customer phone %s for agent %s", customerPhone, agentPhone)
+
+	// Fetch contact info from HubSpot
+	contactInfo, err := h.hsClient.GetContactByPhone(customerPhone)
+	if err != nil {
+		h.handleError(c, err, "Error fetching contact by phone")
+		return
+	}
+
+	log.Printf("[Handler] Contact retrieved for agent %s: exists=%v", agentPhone, contactInfo.Exists)
+	c.JSON(http.StatusOK, contactInfo)
 }
