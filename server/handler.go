@@ -266,6 +266,7 @@ func (h *Handler) TriggerVoiceCall(c *gin.Context) {
 
 	// Build Call API request
 	callReq := callapi.MakeCallRequest{
+		Extension:     "6386",
 		Caller:        "498920171680",
 		CallerContext: "global",
 		Callee:        req.Phone,

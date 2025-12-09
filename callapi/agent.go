@@ -40,14 +40,6 @@ func AddActiveAgent(customer string, agent *SalesAgent) {
 	log.Printf("[CallAPI] Added/Updated active agent for customer %s: agent=%s", customer, agent)
 }
 
-// DeleteActiveAgent removes an active agent for a customer
-func DeleteActiveAgent(customer string) {
-	if _, exists := activeAgents[Customer(customer)]; exists {
-		delete(activeAgents, Customer(customer))
-		log.Printf("[CallAPI] Deleted active agent for customer %s", customer)
-	}
-}
-
 // SetActiveAgentReady updates the ready status of an active agent
 func SetActiveAgentReady(agentExternalNr string, isReady bool) bool {
 	for _, agent := range activeAgents {
@@ -73,17 +65,6 @@ func GetAgentPhone(customer string) (string, bool) {
 		return agent.phone, true
 	}
 	return "", false
-}
-
-// GetActiveAgent retrieves the active agent for a customer
-func GetActiveAgent(customer string) (*ActiveSalesAgent, bool) {
-	agent, exists := activeAgents[Customer(customer)]
-	return agent, exists
-}
-
-// GetAllActiveAgents returns all active agents
-func GetAllActiveAgents() map[Customer]*ActiveSalesAgent {
-	return activeAgents
 }
 
 // GetCustomerByAgentPhone retrieves the customer phone number by agent phone
