@@ -264,12 +264,18 @@ func (h *Handler) TriggerVoiceCall(c *gin.Context) {
 
 	log.Printf("[Handler] TriggerVoiceCall request: phone=%s", req.Phone)
 
+	// Remove leading "00" if present (international prefix)
+	phone := req.Phone
+	if len(phone) > 2 && phone[:2] == "00" {
+		phone = phone[2:]
+	}
+
 	// Build Call API request
 	callReq := callapi.MakeCallRequest{
 		Extension:     "6386",
 		Caller:        "498920171680",
 		CallerContext: "global",
-		Callee:        req.Phone,
+		Callee:        phone,
 		CalleeContext: "global",
 	}
 
