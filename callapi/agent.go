@@ -76,3 +76,15 @@ func GetCustomerByAgentPhone(agentPhone string) (string, bool) {
 	}
 	return "", false
 }
+
+// GetActiveAgents returns a copy of all active agents for debugging
+func GetActiveAgents() map[string]map[string]interface{} {
+	result := make(map[string]map[string]interface{})
+	for customer, agent := range activeAgents {
+		result[string(customer)] = map[string]interface{}{
+			"phone":   agent.phone,
+			"isReady": agent.isReady,
+		}
+	}
+	return result
+}

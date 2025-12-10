@@ -273,9 +273,9 @@ func (h *Handler) TriggerVoiceCall(c *gin.Context) {
 	// Build Call API request
 	callReq := callapi.MakeCallRequest{
 		Extension:     "6386",
-		Caller:        "498920171680",
+		Caller:        phone,
 		CallerContext: "global",
-		Callee:        phone,
+		Callee:        "498920171680",
 		CalleeContext: "global",
 	}
 
@@ -347,6 +347,7 @@ func (h *Handler) CheckAgentReady(c *gin.Context) {
 	}
 
 	log.Printf("[Handler] CheckAgentReady request: phone=%s", phone)
+	log.Printf("[Handler] Active agents: %v", callapi.GetActiveAgents())
 
 	isReady := callapi.IsAgentReady(phone)
 	agentPhone, exists := callapi.GetAgentPhone(phone)
