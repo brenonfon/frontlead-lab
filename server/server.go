@@ -49,6 +49,7 @@ func (s *Server) setupRoutes() {
 
 	// Bridge endpoint between HubSpot and Call API
 	s.router.POST("/trigger-call", s.handler.TriggerVoiceCall)
+	s.router.GET("/outbound/:botPhone", s.handler.GetBufferedOutboundCall)
 
 	// Agent routes
 	s.router.GET("/agent/ready/:phone", s.handler.CheckAgentReady)

@@ -280,6 +280,7 @@ paths:
       description: |
         Bridge endpoint between HubSpot and Call API.
         Receives a phone number and initiates a voice call via the Call API.
+        The phone number is also buffered for the bot to retrieve later.
       operationId: triggerVoiceCall
       tags:
         - Call API
@@ -302,6 +303,47 @@ paths:
                 $ref: '#/components/schemas/TriggerCallError'
         '500':
           description: Call API error
+
+  /outbound/{botPhone}:
+    get:
+      summary: Get buffered outbound call
+      description: |
+        Returns and removes the first phone number from the outbound call buffer for the specified bot.
+        This endpoint is used by the bot to retrieve the next phone number to call.
+      operationId: getBufferedOutboundCall
+      tags:
+        - Call API
+      parameters:
+        - name: botPhone
+          in: path
+          required: true
+          description: Phone number of the bot to get buffered calls for
+          schema:
+            type: string
+          example: "089453000"
+      responses:
+        '200':
+          description: Buffered phone number retrieved successfully
+          content:
+            text/plain:
+              schema:
+                type: string
+                description: The phone number to call
+              example: "+351918253235"
+        '400':
+          description: Bad request - botPhone parameter missing
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: No buffered calls for this bot
+          content:
+            text/plain:
+              schema:
+                type: string
+                description: Empty string
+              example: ""
           
   /agent/ready/{phone}:
     get:

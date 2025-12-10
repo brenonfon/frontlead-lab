@@ -12,6 +12,14 @@ import (
 	"github.com/gin-gonic/gin"
 )
 
+const (
+	botPhoneNumber = "089453000"
+	botExtension   = "351405"
+	botExternalNr  = "498920171680"
+)
+
+var outboundCallBuffer = make(map[string][]string)
+
 // Handler holds the dependencies for HTTP handlers
 type Handler struct {
 	hsClient      *hubspot.Client
@@ -272,10 +280,10 @@ func (h *Handler) TriggerVoiceCall(c *gin.Context) {
 
 	// Build Call API request
 	callReq := callapi.MakeCallRequest{
-		Extension:     "6386",
+		Extension:     botExtension,
 		Caller:        phone,
 		CallerContext: "global",
-		Callee:        "498920171680",
+		Callee:        botExternalNr,
 		CalleeContext: "global",
 	}
 
@@ -296,6 +304,8 @@ func (h *Handler) TriggerVoiceCall(c *gin.Context) {
 	}
 
 	log.Printf("[Handler] Call initiated successfully - CallID: %s", response.CallID)
+
+	outboundCallBuffer[botPhoneNumber] = append(outboundCallBuffer[botPhoneNumber], req.Phone)
 
 	// Return success response to HubSpot
 	c.Status(http.StatusOK)
@@ -397,4 +407,31 @@ func (h *Handler) GetContactByAgent(c *gin.Context) {
 
 	log.Printf("[Handler] Contact retrieved for agent %s: exists=%v", agentPhone, contactInfo.Exists)
 	c.JSON(http.StatusOK, contactInfo)
+}
+
+// GetBufferedOutboundCall handles GET /outbound/:botPhone - returns and removes the first buffered call
+func (h *Handler) GetBufferedOutboundCall(c *gin.Context) {
+	botPhone := c.Param("botPhone")
+
+	if botPhone == "" {
+		log.Printf("[Handler] Bad request: botPhone parameter is missing")
+		c.JSON(http.StatusBadRequest, gin.H{"error": "botPhone parameter is required"})
+		return
+	}
+
+	log.Printf("[Handler] GetBufferedOutboundCall request: botPhone=%s", botPhone)
+
+	buffer, exists := outboundCallBuffer[botPhone]
+	if !exists || len(buffer) == 0 {
+		log.Printf("[Handler] No buffered calls for botPhone: %s", botPhone)
+		c.String(http.StatusNotFound, "")
+		return
+	}
+
+	// Get first value and remove it from the slice
+	phone := buffer[0]
+	outboundCallBuffer[botPhone] = buffer[1:]
+
+	log.Printf("[Handler] Returning buffered call for botPhone %s: %s (remaining: %d)", botPhone, phone, len(outboundCallBuffer[botPhone]))
+	c.String(http.StatusOK, phone)
 }
