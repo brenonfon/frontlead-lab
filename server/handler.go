@@ -14,7 +14,7 @@ import (
 
 const (
 	botPhoneNumber = "089453000"
-	botExtension   = "351405"
+	botExtension   = "6386"
 	botExternalNr  = "498920171680"
 )
 
