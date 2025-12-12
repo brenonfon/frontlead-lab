@@ -53,6 +53,7 @@ func (s *Server) setupRoutes() {
 
 	// Agent routes
 	s.router.GET("/agent/ready/:phone", s.handler.CheckAgentReady)
+	s.router.DELETE("/agents", s.handler.ClearActiveAgents)
 }
 
 // Start starts the HTTP server
@@ -67,6 +68,7 @@ func (s *Server) Start() error {
 	log.Printf("  PATCH  /contacts/id/:id             - Update a contact by HubSpot ID")
 	log.Printf("  POST   /trigger-call                - Bridge endpoint: HubSpot → Call API voice call")
 	log.Printf("  GET    /agent/ready/:phone          - Check if agent is ready for customer")
+	log.Printf("  DELETE /agents                      - Clear all active agents")
 
 	return s.router.Run(addr)
 }

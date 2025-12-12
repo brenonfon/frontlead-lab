@@ -435,3 +435,10 @@ func (h *Handler) GetBufferedOutboundCall(c *gin.Context) {
 	log.Printf("[Handler] Returning buffered call for botPhone %s: %s (remaining: %d)", botPhone, phone, len(outboundCallBuffer[botPhone]))
 	c.String(http.StatusOK, phone)
 }
+
+// ClearActiveAgents handles DELETE /agents - clears all active agents
+func (h *Handler) ClearActiveAgents(c *gin.Context) {
+	log.Printf("[Handler] ClearActiveAgents request")
+	callapi.ClearActiveAgents()
+	c.Status(http.StatusNoContent)
+}

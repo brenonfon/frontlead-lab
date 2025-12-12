@@ -88,3 +88,9 @@ func GetActiveAgents() map[string]map[string]interface{} {
 	}
 	return result
 }
+
+// ClearActiveAgents removes all entries from the activeAgents map
+func ClearActiveAgents() {
+	activeAgents = make(map[AgentPhone]*ActiveAgent)
+	log.Printf("[CallAPI] Cleared all active agents")
+}
