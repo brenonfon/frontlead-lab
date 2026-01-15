@@ -326,9 +326,9 @@ func (h *Handler) startCallWithAgent(phone string) {
 
 	// Build Call API request
 	callReq := callapi.MakeCallRequest{
-		Extension:     botExtension,
-		Caller:        "351918253235",
-		CallerContext: "global",
+		Extension:     agent.Extension,
+		Caller:        agent.ExternalNr,
+		CallerContext: agent.Customer,
 		Callee:        h.callAPIClient.BOT,
 		CalleeContext: "global",
 	}
